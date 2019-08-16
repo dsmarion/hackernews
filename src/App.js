@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import axios from 'axios';
+import PropTypes from 'prop-types';
 import './App.css';
 
 const DEFAULT_QUERY = 'redux';
@@ -45,8 +46,15 @@ class App extends Component {
   }
   
   setSearchTopStories(result) {
-
-    const { hits, page } = result;
+    
+    //const { hits, page } = result;
+    const newHits = result && result.data
+      ? result.data.hits
+      : [];
+    const page = result && result.data
+      ? result.data.page
+      : 0;
+    
     const { searchKey, results } = this.state;
     
     const oldHits = results && results[searchKey]
@@ -55,7 +63,7 @@ class App extends Component {
       
     const updatedHits = [
       ...oldHits,
-      ...hits
+      ...newHits
     ];  
       
     this.setState({ 
@@ -68,18 +76,28 @@ class App extends Component {
   
   fetchSearchTopStories(searchTerm, page = 0) {
       const url=`${PATH_BASE}${PATH_SEARCH}?${PARAM_SEARCH}${searchTerm}&${PARAM_PAGE}${page}&${PARAM_HPP}${DEFAULT_HPP}`;
-      console.log('fetch url', url);
+      //console.log('fetch url', url);
       //fetch(url)
-      axios.get(url)
+      axios(url)
       //.then(response => response.json())
-      .then(result => this.setSearchTopStories(result))
+      .then(result => {
+        if (this._isMounted) {
+          this.setSearchTopStories(result)    
+        };
+      })
       .catch(error => this.setState({ error }));    
   }
   
   componentDidMount() {
+    this._isMounted = true;
+      
     const { searchTerm } = this.state;
     this.setState({ searchKey: searchTerm });
     this.fetchSearchTopStories(searchTerm);
+  }
+  
+  componentWillUnmount() {
+    this._isMounted = false;
   }
   
   onSearchChange(event) {
@@ -133,8 +151,9 @@ class App extends Component {
           </Search>
         </div>
         { error 
-          ? <div class="interactions">
+          ? <div className="interactions">
             <p>Something went wrong!</p>
+            { console.log('error:', error) }
           </div>
           : <Table 
             list={list}
@@ -168,7 +187,7 @@ const Table = ({ list, onDismiss }) =>
     {list.map(item =>
       <div key={item.objectID} className="table-row">
         <span style={largeColumn}>
-          <a href={item.url}>{item.title}</a>
+          <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
         </span>
         <span style={midColumn}>
           {item.author}
@@ -191,7 +210,20 @@ const Table = ({ list, onDismiss }) =>
     )}
   </div>
 
-const Button = ({ onClick, className = '', children }) =>
+Table.propTypes = {
+  list: PropTypes.arrayOf(
+    PropTypes.shape({
+      objectID: PropTypes.string.isRequired,
+      author: PropTypes.string,
+      url: PropTypes.string,
+      num_comments: PropTypes.number,
+      points: PropTypes.number,    
+    })
+  ).isRequired,
+  onDismiss: PropTypes.func.isRequired,    
+};  
+  
+const Button = ({ onClick, className, children }) =>
   <button
     onClick={onClick}
     className={className}
@@ -200,5 +232,21 @@ const Button = ({ onClick, className = '', children }) =>
     {children}
   </button>
 
+Button.propTypes = {
+  onClick: PropTypes.func.isRequired,
+  className: PropTypes.string,
+  children: PropTypes.node.isRequired,    
+};
 
+Button.defaultProps = {
+  className: '',
+}
+  
+  
 export default App;
+
+export {
+  Button,
+  Search,
+  Table,
+};
